@@ -33,7 +33,7 @@ waitServerStarts() {
         let "nbSeconds = $nbSeconds + 2"
         if [ ! -f "$artLog" ]; then
             echo "INFO: File $artLog still not created after $nbSeconds!"
-            if [ $nbSeconds -gt 28 ] && $doTouchLogback; then
+            if [ $nbSeconds -gt 50 ] && $doTouchLogback; then
                 local logbackFile="$artHome/etc/logback.xml"
                 echo "INFO: Touching $logbackFile to refresh log"
                 [ ! -f "$logbackFile" ] && exitError "File $artLog not created after $nbSeconds and $logbackFile doe not exists"
