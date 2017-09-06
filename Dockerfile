@@ -8,7 +8,7 @@ ARG Build_NUMBER
 ARG pluginName
 WORKDIR /data/artifactory-user-plugins-devenv
 ADD local-store/artifactory.lic local-store/
-RUN ./gradlew prepareArtPro -PartifactoryVersion=$artifactoryVersion -PBuild_NUMBER=$Build_NUMBER && \
-    ./gradlew startArtPro -PBuild_NUMBER=$Build_NUMBER
+RUN ./gradlew prepareArtPro -PartifactoryVersion=$artifactoryVersion -PBuild_NUMBER=$Build_NUMBER
+RUN ./gradlew startArtPro -PBuild_NUMBER=$Build_NUMBER
 
-CMD ["/bin/bash", "-c", "./gradlew workOnPlugin -DpluginName=$pluginName && ./gradlew test"]
+CMD ["/bin/bash", "-c", "./gradlew workOnPlugin -DpluginName=$pluginName && sleep 30 && ./gradlew test"]
