@@ -55,7 +55,6 @@ waitServerStarts() {
             echo "INFO: Waiting 2 seconds for jersey to finish"
             sleep 2
             return 0
-          fi
           else 
             local startMessage="`grep "Artifactory successfully started" $artLog`"
             if [ -n "$startMessage" ]; then
