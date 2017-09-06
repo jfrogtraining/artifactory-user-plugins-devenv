@@ -28,12 +28,13 @@ waitServerStarts() {
     local nbSeconds=0
     local printLog=true
     local doTouchLogback=true
+
     while [ $nbSeconds -lt $secsToWait ]; do
         sleep 2
         let "nbSeconds = $nbSeconds + 2"
         if [ ! -f "$artLog" ]; then
             echo "INFO: File $artLog still not created after $nbSeconds!"
-            if [ $nbSeconds -gt 50 ] && $doTouchLogback; then
+            if [ $nbSeconds -gt 60 ] && $doTouchLogback; then
                 local logbackFile="$artHome/etc/logback.xml"
                 echo "INFO: Touching $logbackFile to refresh log"
                 [ ! -f "$logbackFile" ] && exitError "File $artLog not created after $nbSeconds and $logbackFile doe not exists"
@@ -55,6 +56,16 @@ waitServerStarts() {
             sleep 2
             return 0
           fi
+          else 
+            local startMessage="`grep "Artifactory successfully started" $artLog`"
+            if [ -n "$startMessage" ]; then
+                echo "INFO: Found start message in $artLog after $nbSeconds!"
+                echo "INFO: $startMessage"
+                echo "INFO: Waiting 7 seconds for jersey to finish"
+                sleep 7
+                return 0
+            fi
+          fi 
         else
           local startMessage="`grep "Artifactory successfully started" $artLog`"
           if [ -n "$startMessage" ]; then
