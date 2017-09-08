@@ -2,7 +2,7 @@ From java:8
 WORKDIR /data
 ARG artbranch
 RUN git clone https://github.com/jfrogtraining/artifactory-user-plugins-devenv.git --branch=$artbranch && \
-    git clone https://github.com/JFrogDev/artifactory-user-plugins.git --branch='testindocker'
+    git clone https://github.com/JFrogDev/artifactory-user-plugins.git
 ARG artifactoryVersion
 ARG Build_NUMBER
 ARG pluginName
