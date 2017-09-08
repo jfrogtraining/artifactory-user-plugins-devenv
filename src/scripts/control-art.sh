@@ -84,7 +84,7 @@ start() {
     [ -e $artLog ] && mv $artLog $artLog.$RANDOM
     uname|grep -q MING && rm -rf $artHome/tomcat/logs
     $artHome/bin/artifactory.sh start
-    waitServerStarts 120
+    waitServerStarts 240
 }
 
 stop() {
