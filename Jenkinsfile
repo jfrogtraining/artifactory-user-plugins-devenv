@@ -19,7 +19,7 @@ def cleanupSlaves = [:]
 def builders =[:]
 
 // four Jenkins slave - set number of executor = 1
-def labels =['jslave4', 'jslave2', 'jslave3', 'jslave1']
+def labels =['jslave1', 'jslave2', 'jslave3', 'jslave4', 'jslave5', 'jslave6']
 
 //
 // create list of all user plugins 
@@ -27,7 +27,7 @@ def labels =['jslave4', 'jslave2', 'jslave3', 'jslave1']
 
 node ('master') {
     stage ('Create Plugin List') {
-        git url: 'https://github.com/JFrogDev/artifactory-user-plugins.git'
+        git url: 'https://github.com/JFrogDev/artifactory-user-plugins.git', branch: "testindocker"
         copyPluginList(userPluginList(new File("${env.WORKSPACE}")))
         printUserPluginList ()
     }
@@ -37,7 +37,7 @@ node ('master') {
         def server = Artifactory.server SERVER_ID
 
         dir ('artifactory-user-plugins-devenv') {
-            git url: 'https://github.com/JFrogDev/artifactory-user-plugins-devenv.git', branch: "${ARTDEVENVBRANCH}"
+            git url: 'https://github.com/jfrogtraining/artifactory-user-plugins-devenv.git', branch: "${ARTDEVENVBRANCH}"
             sh "cd ${env.WORKSPACE}/artifactory-user-plugins-devenv"
             withCredentials([usernamePassword(credentialsId: REPO21_CRED, passwordVariable: 'repoPwd', usernameVariable: 'repoUser')]) {
                 insertCredProperties ('username=xxx', "username=${repoUser}")
@@ -45,16 +45,16 @@ node ('master') {
             }
             fetchArtifactoryLicense (server)
             stash name: "gradle-property", includes: "gradle.properties"
-            stash name: "artifactory-lic", includes: "artuserplugin.lic"
+            stash name: "artuserplugin-lic", includes: "artuserplugin.lic"
 
             try {
                 for (x in labels) {
                     def label = x
-                    builders[label] = buildersOnSlaves(label, ARTDEVENVBRANCH)
+                    builders[label] = buildersOnSlaves(label, ARTDEVENVBRANCH, ARTVERSION)
                 }
                 parallel builders
             } catch (Exception e) {
-                println "Caught exception at preparing slaves"
+                println "Caught exception at preparing slaves. Message ${e.message}"
             }
         }
     }
@@ -144,7 +144,7 @@ def copyPluginList (pList) {
     pluginList = pList
 }
 
-def buildersOnSlaves (label, artbranch) {
+def buildersOnSlaves (label, artbranch, artversion) {
     return {
         node (label) {
             try {
@@ -153,12 +153,15 @@ def buildersOnSlaves (label, artbranch) {
                 println "Info: Exception caught while cleanup before preparing Artifactory"
             }
             dir ('artifactory-user-plugins-devenv') {
-                git url: 'https://github.com/JFrogDev/artifactory-user-plugins-devenv.git', branch: artbranch
+                git url: 'https://github.com/jfrogtraining/artifactory-user-plugins-devenv.git', branch: artbranch
                 unstash "gradle-property"
-                unstash "artifactory-lic"
+                unstash "artuserplugin-lic"
                 def workspace = pwd()
-                sh "cp artifactory.lic $workspace/local-store/"
-                sh "docker build --build-arg artifactoryVersion=_latest --build-arg artbranch=${artbranch} --build-arg Build_NUMBER=${env.BUILD_NUMBER} -f $workspace/Dockerfile -t user-plugin:test ."
+                sh "mkdir -p build"
+                sh "cd build; sudo rm -rf *"
+                sh "mkdir -p build/reports/tests"
+                sh "cp artuserplugin.lic $workspace/local-store/artifactory.lic"
+                sh "docker build --build-arg artifactoryVersion=${artversion} --build-arg artbranch=${artbranch} --build-arg Build_NUMBER=${env.BUILD_NUMBER} -f $workspace/Dockerfile -t user-plugin:test ."
             }
         }
     }
@@ -167,20 +170,20 @@ def buildersOnSlaves (label, artbranch) {
 
 def runUserPluginTest (pluginName) {
     return {
-        node ('docker') {
+        node ('artuserplugin') {
             dir ('artifactory-user-plugins-devenv') {
                 echo "User Plugin Test: ${pluginName}"
-                sh "mkdir -p build/reports/tests"
-                def containerPlugin = pluginName.toLowerCase().replaceAll("\\/", "-")
+                sh "sudo rm -rf build/classes"
+                def containerPlugin = pluginName
+                containerPlugin = containerPlugin.toLowerCase().replaceAll("\\/", "-")
                 try {
-                    //def cn = pluginName.toLowerCase().replaceAll("\\/", "-").concat(${env.BUILD_NUMBER})
-                    sh "docker run -e pluginName=${pluginName} --name ${containerPlugin} user-plugin:test"
+                    sh "docker run -v ${env.WORKSPACE}/artifactory-user-plugins-devenv/build:/data/artifactory-user-plugins-devenv/build -e pluginName=${pluginName} --name ${containerPlugin} user-plugin:test"
                 } catch (Exception e) {
                     println "Caught Exception with plugin ${pluginName}. Message ${e.message}"
                 } finally {
-                    sh "docker cp ${containerPlugin}:/data/artifactory-user-plugins-devenv/build/reports/tests/ build/"
-                    sh "docker cp ${containerPlugin}:/data/artifactory-user-plugins-devenv/build/test-results build/"
                     sh "docker rm ${containerPlugin}"
+                    step([$class: 'JUnitResultArchiver', testResults: '**/build/test-results/TEST-${pluginName}Test.xml'])
+                    sh "ls -al ${env.WORKSPACE}/artifactory-user-plugins-devenv/build/test-results"
                 }
             }
         }
@@ -216,10 +219,8 @@ def cleanUpSlaves (label) {
             } catch (Exception e) {
                 println "Caught exception while archiving test results. ${e.message}"
             } finally {
-		dir ('artifactory-user-plugins-devenv') {
-                    deleteDir()
-                }
-                println "Done with clean up" 
+                println "Completed test of plugin"
+                sh 'docker system prune -f'
             }
         }
     }
@@ -244,3 +245,4 @@ def reportOnTestsForBuild () {
         }
     }
 }
+
